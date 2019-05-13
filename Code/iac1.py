@@ -152,14 +152,14 @@ def get_net(probes):
 
 def update():
     for attribute in Person.graph:
-        den = 0
+        den = 0.0
         for node in Person.graph[attribute]:
             node.activation = False
             den += math.exp(node.netInput)
-        maxVal = 0
+        maxVal = 0.0
         maxNode = None
         for node in Person.graph[attribute]:
-            val = math.exp(node.netInput)
+            val = (float)(math.exp(node.netInput))/den
             if val>maxVal:
                 maxVal = val
                 maxNode = node

@@ -17,6 +17,7 @@ class Person():
         self.kind = "instance"
         self.activation = False
         self.netInput = prob({},{'name':self.value})
+        #self.netInput = 0
         self.attachedTo = []
         for attribute in attributes:
             prop = None
@@ -32,8 +33,9 @@ class Person():
                 Person.graph[attribute].append(prop)
 
             # Create connections
-            prop.attachedTo.append((self,prob({attribute:attributes[attribute]},{self.kind:self.value})))
-            self.attachedTo.append((prop,0))
+            #prop.attachedTo.append((self,prob({attribute:attributes[attribute]},{self.kind:self.value})))
+            prop.attachedTo.append((self,1))
+            self.attachedTo.append((prop,1))
 
         # Attach a reference of oneself to access it later
         Person.graph["instance"].append(self)
@@ -114,7 +116,7 @@ def prob(evidences, atts):
             if f:
                 count += 1
     #return count, total, math.log(float(count)/total)
-    return math.log(float(count)/total)
+    return float(count)/total
 
 def enums(key):
     vals = set()
@@ -146,9 +148,7 @@ def get_net(probes):
             for k in node.attachedTo:
                 neighbour,val = k
                 if neighbour.activation:
-                    node.netInput = neighbour.netInput+val
-            if (node.kind, node.value) in probes:
-                node.netInput += ESTR * probes[(node.kind, node.value)]
+                    node.netInput += neighbour.netInput*val                
 
 def update():
     for attribute in Person.graph:
@@ -160,9 +160,11 @@ def update():
         maxNode = None
         for node in Person.graph[attribute]:
             val = (float)(math.exp(node.netInput))/den
+            #node.netInput = val
             if val>maxVal:
                 maxVal = val
                 maxNode = node
+        #print(attribute, maxNode.kind,maxNode.value,maxNode.netInput)
         maxNode.activation = True
 def show_graph_state():
     for attribute in Person.graph:
@@ -170,6 +172,11 @@ def show_graph_state():
             print(node.kind, node.value, node.netInput)
 
 def cycle(nTimes, probes):
+    for attribute in Person.graph:
+        for node in Person.graph[attribute]:
+            if (node.kind, node.value) in probes:
+                node.netInput = probes[(node.kind, node.value)]
+                node.activation = True
     for i in range(nTimes):
         get_net(probes)
         update()

@@ -1,5 +1,3 @@
-from __future__ import print_function
-import math
 class Person():
     graph = {
         "instance": [],
@@ -15,9 +13,8 @@ class Person():
         # Assuming name attribute of the instance is unique
         self.value = attributes['name']
         self.kind = "instance"
-        self.activation = False
-        self.netInput = prob({},{'name':self.value})
-        #self.netInput = 0
+        self.activation = REST
+        self.netInput = 0
         self.attachedTo = []
         for attribute in attributes:
             prop = None
@@ -33,9 +30,8 @@ class Person():
                 Person.graph[attribute].append(prop)
 
             # Create connections
-            #prop.attachedTo.append((self,prob({attribute:attributes[attribute]},{self.kind:self.value})))
-            prop.attachedTo.append((self,1))
-            self.attachedTo.append((prop,1))
+            prop.attachedTo.append(self)
+            self.attachedTo.append(prop)
 
         # Attach a reference of oneself to access it later
         Person.graph["instance"].append(self)
@@ -50,7 +46,7 @@ class Property():
         self.kind = kind
         self.value = value
         self.attachedTo = []
-        self.activation = False
+        self.activation = REST
         self.netInput = 0
 
     def __str__(self):
@@ -94,37 +90,6 @@ ESTR = 0.4
 ALPHA = 0.1
 GAMMA = 0.1
 
-def prob(evidences, atts):
-    count, total = 0, 0
-    for datapoint in data:
-        inc = True
-        for key in evidences:
-            if key=='instance':
-                dataval = datapoint['name']
-            else:
-                dataval = datapoint[key]
-            inc = inc and dataval == evidences[key]
-        if inc:
-            total += 1
-            f = True
-            for key in atts:
-                if key=='instance':
-                    dataval = datapoint['name']
-                else:
-                    dataval = datapoint[key]
-                f = f and dataval == atts[key]
-            if f:
-                count += 1
-    #return count, total, math.log(float(count)/total)
-    return float(count)/total
-
-def enums(key):
-    vals = set()
-    for datapoint in data:
-        if datapoint[key] not in vals:
-            vals.add(datapoint[key])
-    return list(vals)
-
 def find_node(type, value):
     for node in Person.graph[type]:
         if node.value == value:
@@ -137,51 +102,56 @@ def constructGraph():
 def reset():
     for attribute in Person.graph:
         for node in Person.graph[attribute]:
-            if node.key=='instance':
-                node.netInput = prob({},{node.kind:node.value})
-            else:
-                node.netInput = 0
+            node.activation = REST
 
 def get_net(probes):
     for attribute in Person.graph:
         for node in Person.graph[attribute]:
-            for k in node.attachedTo:
-                neighbour,val = k
-                if neighbour.activation:
-                    node.netInput += neighbour.netInput*val                
+            inhibitory = 0
+            excitatory = 0
+
+            for neighbour in node.attachedTo:
+                if neighbour.activation > 0:
+                    excitatory += neighbour.activation
+
+            for neighbour in Person.graph[node.kind]:
+                if neighbour.value == node.value:
+                    continue
+                if neighbour.activation > 0:
+                    inhibitory += neighbour.activation
+
+            excitatory *= ALPHA
+            inhibitory *= GAMMA
+            node.netInput = excitatory - inhibitory
+            if (node.kind, node.value) in probes:
+                node.netInput += ESTR * probes[(node.kind, node.value)]
 
 def update():
     for attribute in Person.graph:
-        den = 0.0
         for node in Person.graph[attribute]:
-            node.activation = False
-            den += math.exp(node.netInput)
-        maxVal = 0.0
-        maxNode = None
-        for node in Person.graph[attribute]:
-            val = (float)(math.exp(node.netInput))/den
-            #node.netInput = val
-            if val>maxVal:
-                maxVal = val
-                maxNode = node
-        #print(attribute, maxNode.kind,maxNode.value,maxNode.netInput)
-        maxNode.activation = True
+
+            if node.netInput > 0:
+                node.activation += (MAX - node.activation) * node.netInput - DECAY * (node.activation - REST)
+            else:
+                node.activation += (node.activation - MIN) * node.netInput - DECAY * (node.activation - REST)
+
+
+            if node.activation > MAX:
+                node.activation = MAX
+            if node.activation < MIN:
+                node.activation = MIN
+
 def show_graph_state():
     for attribute in Person.graph:
         for node in Person.graph[attribute]:
-            print(node.kind, node.value, node.netInput)
+            print node.kind, node.value, node.activation
 
 def cycle(nTimes, probes):
-    for attribute in Person.graph:
-        for node in Person.graph[attribute]:
-            if (node.kind, node.value) in probes:
-                node.netInput = probes[(node.kind, node.value)]
-                node.activation = True
-    for i in range(nTimes):
+    for i in xrange(nTimes):
         get_net(probes)
         update()
 
     show_graph_state()
-    
-constructGraph()
-cycle(100, {('name', 'Ken'): 1})
+
+#constructGraph()
+#cycle(100, {('name', 'Ken'): 1})
